@@ -3,32 +3,88 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
-#include <wex.h>
-#include "cStarterGUI.h"
 
-class cGUI : public cStarterGUI
+std::vector<std::string> userName;
+std::vector<std::pair<std::string, double>> interest; // name, weight
+std::vector<std::pair<int, int>> like;                // user, interest
+
+void populateFromdatabase()
 {
-public:
-    cGUI()
-        : cStarterGUI(
-              "Starter",
-              {50, 50, 1000, 500}),
-          lb(wex::maker::make < wex::label >(fm))
-    {
-        lb.move(50, 50, 100, 30);
-        lb.text("Hello World");
+    // ... this is a stub
+}
 
-        show();
-        run();
+void populateFromTest1()
+{
+    userName = {"Alice", "Bob", "Carol", "David "};
+    interest = {
+        {"football", 1},
+        {"tennis", 2},
+        {"golf", 3}};
+    like = {
+        {0, 0}, // Alice likes football
+        {0, 1},
+        {1, 1},
+        {1, 2},
+        {2, 2},
+        {2, 0},
+        {3, 2},
+        {3, 0}};
+}
+
+void cluster(int userID)
+{
+    std::unordered_map<int, double> sharedScoreMap;
+
+    // loop over user's interests
+    for (auto &pui : like)
+    {
+        if (pui.first != userID)
+            continue;
+
+        // loop over other users
+        for (int other = 0; other < userName.size(); other++)
+        {
+            if (other == userID)
+                continue;
+
+            double other_score = 0;
+
+            // loop over other user's interests
+            for (auto &poui : like)
+            {
+                if (poui.first != other)
+                    continue;
+                if (poui.second != pui.second)
+                    continue;
+
+                // found a shared interest
+                // std::cout << userName[pui.first] << " and " << userName[poui.first]
+                //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
+
+                other_score += interest[poui.second].second;
+            }
+            if (other_score)
+                sharedScoreMap[other] += other_score;
+        }
     }
 
-private:
-    wex::label &lb;
-};
-
+    std::cout << "\n"
+              << userName[userID] << "'s cluster\n";
+    for (auto it : sharedScoreMap)
+    {
+        std::cout << userName[it.first] << "\t" << it.second << "\n";
+    }
+}
 main()
 {
-    cGUI theGUI;
+    populateFromTest1();
+
+    cluster(0);
+    cluster(1);
+    cluster(2);
+    cluster(3);
+
     return 0;
 }
