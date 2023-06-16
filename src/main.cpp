@@ -7,23 +7,26 @@
 #include <algorithm>
 #include "cRunWatch.h"
 
-std::vector<std::string> userName;
-std::vector<std::pair<std::string, double>> interest; // name, weight
-std::vector<std::pair<int, int>> like;                // user, interest
+struct sharedLikes
+{
+    std::vector<std::string> userName;
+    std::vector<std::pair<std::string, double>> interest; // name, weight
+    std::vector<std::pair<int, int>> like;                // user, interest
+};
 
 void populateFromdatabase()
 {
     // ... this is a stub
 }
 
-void populateFromTest1()
+void populateFromTest1( sharedLikes& data)
 {
-    userName = {"Alice", "Bob", "Carol", "David "};
-    interest = {
+    data.userName = {"Alice", "Bob", "Carol", "David "};
+    data.interest = {
         {"football", 1},
         {"tennis", 2},
         {"golf", 3}};
-    like = {
+    data.like = {
         {0, 0}, // Alice likes football
         {0, 1},
         {1, 1},
@@ -34,37 +37,38 @@ void populateFromTest1()
         {3, 0}};
 }
 
-void populateRandom(int userCount)
+void populateRandom(int userCount, sharedLikes& data)
 {
     for (int k = 0; k < userCount; k++)
-        userName.push_back("user" + std::to_string(k));
+        data.userName.push_back("user" + std::to_string(k));
     for (int k = 0; k < 100; k++)
-        interest.push_back(std::make_pair(
+        data.interest.push_back(std::make_pair(
             "interest " + std::to_string(k), k));
     for (int k = 0; k < userCount; k++)
         for (int l = 0; l < 3; l++)
-            like.push_back(std::make_pair(
+            data.like.push_back(std::make_pair(
                 k, rand() % 100));
 }
 
 /// @brief Cluster users by shared interests
 /// @param userID to build a cluster around
+/// @param data the shared like database extract
 /// @return vector of scores indesed by other users indices
 
-std::vector<double> cluster(int userID)
+std::vector<double> cluster(int userID, sharedLikes& data)
 {
     raven::set::cRunWatch aWatcher("cluster");
 
-    std::vector<double> sharedScore(userName.size(), 0);
+    std::vector<double> sharedScore(data.userName.size(), 0);
 
     // loop over user's interests
-    for (auto &pui : like)
+    for (auto &pui : data.like)
     {
         if (pui.first != userID)
             continue;
 
         // loop over other users
-        for (int other = 0; other < userName.size(); other++)
+        for (int other = 0; other < data.userName.size(); other++)
         {
             if (other == userID)
                 continue;
@@ -72,7 +76,7 @@ std::vector<double> cluster(int userID)
             double other_score = 0;
 
             // loop over other user's interests
-            for (auto &poui : like)
+            for (auto &poui : data.like)
             {
                 if (poui.first != other)
                     continue;
@@ -83,7 +87,7 @@ std::vector<double> cluster(int userID)
                 // std::cout << userName[pui.first] << " and " << userName[poui.first]
                 //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
 
-                sharedScore[other] += interest[poui.second].second;
+                sharedScore[other] += data.interest[poui.second].second;
             }
         }
     }
@@ -91,7 +95,10 @@ std::vector<double> cluster(int userID)
     return sharedScore;
 }
 
-void displayCluster(int owner, const std::vector<double> &cluster)
+void displayCluster(
+    sharedLikes& data,
+    int owner, 
+    const std::vector<double> &cluster)
 {
     // sort into descending order
     struct classcomp
@@ -102,15 +109,14 @@ void displayCluster(int owner, const std::vector<double> &cluster)
         }
     };
     std::multimap<double, std::string, classcomp> scoreMap;
-    for (int k = 0; k < userName.size(); k++)
+    for (int k = 0; k < data.userName.size(); k++)
     {
         if (cluster[k] > 0)
-            scoreMap.insert(std::make_pair(cluster[k], userName[k]));
+            scoreMap.insert(std::make_pair(cluster[k], data.userName[k]));
     }
 
     // display the cluster
-    std::cout << "\n"
-              << userName[owner] << "'s cluster\n";
+    std::cout << "\nCluster around " << data.userName[owner] << "\n";
     for (auto it : scoreMap)
     {
         std::cout << it.second << "\t" << it.first << "\n";
@@ -120,13 +126,15 @@ main()
 {
     raven::set::cRunWatch::Start();
 
-    populateFromTest1();
-    // populateRandom(100000);
+    sharedLikes data;
 
-    displayCluster(0, cluster(0));
-    displayCluster(1, cluster(1));
-    displayCluster(2, cluster(2));
-    displayCluster(3, cluster(3));
+    populateFromTest1(data);
+    // populateRandom(100000, data);
+
+    displayCluster(data, 0, cluster(0,data));
+    displayCluster(data, 1, cluster(1,data));
+    displayCluster(data, 2, cluster(2,data));
+    displayCluster(data, 3, cluster(3,data));
 
     raven::set::cRunWatch::Report();
     return 0;
