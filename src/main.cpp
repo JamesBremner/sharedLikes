@@ -50,7 +50,8 @@ void populateRandom( int userCount )
     void cluster(int userID)
     {
         raven::set::cRunWatch aWatcher("cluster");
-        std::map<int, double> sharedScoreMap;
+
+        std::vector<double> sharedScore( userName.size(), 0);
 
         // loop over user's interests
         for (auto &pui : like)
@@ -78,32 +79,38 @@ void populateRandom( int userCount )
                     // std::cout << userName[pui.first] << " and " << userName[poui.first]
                     //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
 
-                    other_score += interest[poui.second].second;
+                    sharedScore[other] += interest[poui.second].second;
                 }
-                if (other_score)
-                    sharedScoreMap[other] += other_score;
             }
         }
 
-        // display the cluster 
-        // std::cout << "\n"
-        //           << userName[userID] << "'s cluster\n";
-        // for (auto it : sharedScoreMap)
-        // {
-        //     std::cout << userName[it.first] << "\t" << it.second << "\n";
-        // }
+        // sort into ascending order
+        std::multimap<double,std::string> scoreMap;
+        for (int k = 0; k < userName.size(); k++ )
+        {
+            if( sharedScore[k] > 0)
+                scoreMap.insert(std::make_pair(sharedScore[k],userName[k]));
+        }
+
+        //display the cluster 
+        std::cout << "\n"
+                  << userName[userID] << "'s cluster\n";
+        for (auto it : scoreMap )
+        {
+            std::cout << it.second << "\t" << it.first << "\n";
+        }
     }
     main()
     {
         raven::set::cRunWatch::Start();
 
-        // populateFromTest1();
-        populateRandom(100000);
+         populateFromTest1();
+        //populateRandom(100000);
 
         cluster(0);
-        cluster(10);
-        cluster(20);
-        cluster(30);
+        cluster(1);
+        cluster(2);
+        cluster(3);
 
         raven::set::cRunWatch::Report();
         return 0;
