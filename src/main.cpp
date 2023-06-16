@@ -91,10 +91,17 @@ std::vector<double> cluster(int userID)
     return sharedScore;
 }
 
-void displayCluster( int owner, const std::vector<double>& cluster )
+void displayCluster(int owner, const std::vector<double> &cluster)
 {
-    // sort into ascending order
-    std::multimap<double, std::string> scoreMap;
+    // sort into descending order
+    struct classcomp
+    {
+        bool operator()(const char &lhs, const char &rhs) const
+        {
+            return lhs > rhs;
+        }
+    };
+    std::multimap<double, std::string, classcomp> scoreMap;
     for (int k = 0; k < userName.size(); k++)
     {
         if (cluster[k] > 0)
@@ -116,11 +123,10 @@ main()
     populateFromTest1();
     // populateRandom(100000);
 
-    displayCluster(0,cluster(0));
-    displayCluster(1,cluster(1));
-    displayCluster(2,cluster(2));
-    displayCluster(3,cluster(3));
-
+    displayCluster(0, cluster(0));
+    displayCluster(1, cluster(1));
+    displayCluster(2, cluster(2));
+    displayCluster(3, cluster(3));
 
     raven::set::cRunWatch::Report();
     return 0;
