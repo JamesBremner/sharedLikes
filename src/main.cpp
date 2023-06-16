@@ -3,8 +3,9 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include <algorithm>
+#include "cRunWatch.h"
 
 std::vector<std::string> userName;
 std::vector<std::pair<std::string, double>> interest; // name, weight
@@ -33,58 +34,77 @@ void populateFromTest1()
         {3, 0}};
 }
 
-void cluster(int userID)
+void populateRandom( int userCount )
 {
-    std::unordered_map<int, double> sharedScoreMap;
+    for (int k = 0; k < userCount; k++)
+        userName.push_back("user" + std::to_string(k));
+    for (int k = 0; k < 100; k++)
+        interest.push_back(std::make_pair(
+            "interest " + std::to_string(k), k));
+    for (int k = 0; k < userCount; k++)
+        for (int l = 0; l < 3; l++)
+            like.push_back(std::make_pair(
+                k, rand() % 100));
+}
 
-    // loop over user's interests
-    for (auto &pui : like)
+    void cluster(int userID)
     {
-        if (pui.first != userID)
-            continue;
+        raven::set::cRunWatch aWatcher("cluster");
+        std::map<int, double> sharedScoreMap;
 
-        // loop over other users
-        for (int other = 0; other < userName.size(); other++)
+        // loop over user's interests
+        for (auto &pui : like)
         {
-            if (other == userID)
+            if (pui.first != userID)
                 continue;
 
-            double other_score = 0;
-
-            // loop over other user's interests
-            for (auto &poui : like)
+            // loop over other users
+            for (int other = 0; other < userName.size(); other++)
             {
-                if (poui.first != other)
-                    continue;
-                if (poui.second != pui.second)
+                if (other == userID)
                     continue;
 
-                // found a shared interest
-                // std::cout << userName[pui.first] << " and " << userName[poui.first]
-                //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
+                double other_score = 0;
 
-                other_score += interest[poui.second].second;
+                // loop over other user's interests
+                for (auto &poui : like)
+                {
+                    if (poui.first != other)
+                        continue;
+                    if (poui.second != pui.second)
+                        continue;
+
+                    // found a shared interest
+                    // std::cout << userName[pui.first] << " and " << userName[poui.first]
+                    //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
+
+                    other_score += interest[poui.second].second;
+                }
+                if (other_score)
+                    sharedScoreMap[other] += other_score;
             }
-            if (other_score)
-                sharedScoreMap[other] += other_score;
         }
-    }
 
-    std::cout << "\n"
-              << userName[userID] << "'s cluster\n";
-    for (auto it : sharedScoreMap)
+        // display the cluster 
+        // std::cout << "\n"
+        //           << userName[userID] << "'s cluster\n";
+        // for (auto it : sharedScoreMap)
+        // {
+        //     std::cout << userName[it.first] << "\t" << it.second << "\n";
+        // }
+    }
+    main()
     {
-        std::cout << userName[it.first] << "\t" << it.second << "\n";
+        raven::set::cRunWatch::Start();
+
+        // populateFromTest1();
+        populateRandom(100000);
+
+        cluster(0);
+        cluster(10);
+        cluster(20);
+        cluster(30);
+
+        raven::set::cRunWatch::Report();
+        return 0;
     }
-}
-main()
-{
-    populateFromTest1();
-
-    cluster(0);
-    cluster(1);
-    cluster(2);
-    cluster(3);
-
-    return 0;
-}
