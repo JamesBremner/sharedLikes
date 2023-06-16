@@ -34,7 +34,7 @@ void populateFromTest1()
         {3, 0}};
 }
 
-void populateRandom( int userCount )
+void populateRandom(int userCount)
 {
     for (int k = 0; k < userCount; k++)
         userName.push_back("user" + std::to_string(k));
@@ -47,71 +47,81 @@ void populateRandom( int userCount )
                 k, rand() % 100));
 }
 
-    void cluster(int userID)
+/// @brief Cluster users by shared interests
+/// @param userID to build a cluster around
+/// @return vector of scores indesed by other users indices
+
+std::vector<double> cluster(int userID)
+{
+    raven::set::cRunWatch aWatcher("cluster");
+
+    std::vector<double> sharedScore(userName.size(), 0);
+
+    // loop over user's interests
+    for (auto &pui : like)
     {
-        raven::set::cRunWatch aWatcher("cluster");
+        if (pui.first != userID)
+            continue;
 
-        std::vector<double> sharedScore( userName.size(), 0);
-
-        // loop over user's interests
-        for (auto &pui : like)
+        // loop over other users
+        for (int other = 0; other < userName.size(); other++)
         {
-            if (pui.first != userID)
+            if (other == userID)
                 continue;
 
-            // loop over other users
-            for (int other = 0; other < userName.size(); other++)
+            double other_score = 0;
+
+            // loop over other user's interests
+            for (auto &poui : like)
             {
-                if (other == userID)
+                if (poui.first != other)
+                    continue;
+                if (poui.second != pui.second)
                     continue;
 
-                double other_score = 0;
+                // found a shared interest
+                // std::cout << userName[pui.first] << " and " << userName[poui.first]
+                //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
 
-                // loop over other user's interests
-                for (auto &poui : like)
-                {
-                    if (poui.first != other)
-                        continue;
-                    if (poui.second != pui.second)
-                        continue;
-
-                    // found a shared interest
-                    // std::cout << userName[pui.first] << " and " << userName[poui.first]
-                    //           << " share " << interest[pui.second].first << " score " << interest[pui.second].second << "\n";
-
-                    sharedScore[other] += interest[poui.second].second;
-                }
+                sharedScore[other] += interest[poui.second].second;
             }
         }
-
-        // sort into ascending order
-        std::multimap<double,std::string> scoreMap;
-        for (int k = 0; k < userName.size(); k++ )
-        {
-            if( sharedScore[k] > 0)
-                scoreMap.insert(std::make_pair(sharedScore[k],userName[k]));
-        }
-
-        //display the cluster 
-        std::cout << "\n"
-                  << userName[userID] << "'s cluster\n";
-        for (auto it : scoreMap )
-        {
-            std::cout << it.second << "\t" << it.first << "\n";
-        }
     }
-    main()
+
+    return sharedScore;
+}
+
+void displayCluster( int owner, const std::vector<double>& cluster )
+{
+    // sort into ascending order
+    std::multimap<double, std::string> scoreMap;
+    for (int k = 0; k < userName.size(); k++)
     {
-        raven::set::cRunWatch::Start();
-
-         populateFromTest1();
-        //populateRandom(100000);
-
-        cluster(0);
-        cluster(1);
-        cluster(2);
-        cluster(3);
-
-        raven::set::cRunWatch::Report();
-        return 0;
+        if (cluster[k] > 0)
+            scoreMap.insert(std::make_pair(cluster[k], userName[k]));
     }
+
+    // display the cluster
+    std::cout << "\n"
+              << userName[owner] << "'s cluster\n";
+    for (auto it : scoreMap)
+    {
+        std::cout << it.second << "\t" << it.first << "\n";
+    }
+}
+main()
+{
+    raven::set::cRunWatch::Start();
+
+    populateFromTest1();
+    // populateRandom(100000);
+
+    displayCluster(0,cluster(0));
+    displayCluster(1,cluster(1));
+    displayCluster(2,cluster(2));
+    displayCluster(3,cluster(3));
+
+
+    raven::set::cRunWatch::Report();
+    return 0;
+}
