@@ -1,8 +1,8 @@
 #source file search paths
-VPATH = ./src ../raven-set
+VPATH = ./src ../raven-set ../sqlite
 
 	# compiler include search paths
-INCS = -I./include \
+INCS = -I../sqlite \
 	-I../windex/include \
 	-I../raven-set \
 	-I../../code_ext/boost/boost1_78 
@@ -26,9 +26,14 @@ CCflags = -std=c++17 $(OPT) -D_mingw_
 # sources
 OBJ_starter = \
 	$(ODIR)/main.o \
+	$(ODIR)/cSharedLikesDB.o \
+	$(ODIR)/sqlite3.o \
 	$(ODIR)/cRunWatch.o
 
 ### COMPILE
+
+$(ODIR)/sqlite3.o: sqlite3.c
+	gcc	 -c -o $@ $<
 
 $(ODIR)/%.o: %.cpp  
 	g++  $(CCflags) \
@@ -36,7 +41,7 @@ $(ODIR)/%.o: %.cpp
 
 starter: $(OBJ_starter)
 	g++ $(OPT) \
-	-o bin/starter.exe $^  \
+	-o bin/likes.exe $^  \
 	$(static_link_flags) $(LIBS)
 
 .PHONY: clean

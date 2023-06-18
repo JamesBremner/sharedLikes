@@ -6,6 +6,7 @@
 #include <map>
 #include <algorithm>
 #include "cRunWatch.h"
+#include "cSharedLikesDB.h"
 
 struct sharedLikes
 {
@@ -19,7 +20,7 @@ void populateFromdatabase()
     // ... this is a stub
 }
 
-void populateFromTest1( sharedLikes& data)
+void populateFromTest1(sharedLikes &data)
 {
     data.userName = {"Alice", "Bob", "Carol", "David "};
     data.interest = {
@@ -37,7 +38,7 @@ void populateFromTest1( sharedLikes& data)
         {3, 0}};
 }
 
-void populateRandom(int userCount, sharedLikes& data)
+void populateRandom(int userCount, sharedLikes &data)
 {
     for (int k = 0; k < userCount; k++)
         data.userName.push_back("user" + std::to_string(k));
@@ -53,9 +54,9 @@ void populateRandom(int userCount, sharedLikes& data)
 /// @brief Cluster users by shared interests
 /// @param userID to build a cluster around
 /// @param data the shared like database extract
-/// @return vector of scores indesed by other users indices
+/// @return vector of scores indexed by users. Score > 0 indicates user in cluster
 
-std::vector<double> cluster(int userID, sharedLikes& data)
+std::vector<double> cluster(int userID, sharedLikes &data)
 {
     raven::set::cRunWatch aWatcher("cluster");
 
@@ -96,8 +97,8 @@ std::vector<double> cluster(int userID, sharedLikes& data)
 }
 
 void displayCluster(
-    sharedLikes& data,
-    int owner, 
+    const std::vector<std::string> &userName,
+    int owner,
     const std::vector<double> &cluster)
 {
     // sort into descending order
@@ -109,32 +110,50 @@ void displayCluster(
         }
     };
     std::multimap<double, std::string, classcomp> scoreMap;
-    for (int k = 0; k < data.userName.size(); k++)
+    for (int k = 0; k < userName.size(); k++)
     {
         if (cluster[k] > 0)
-            scoreMap.insert(std::make_pair(cluster[k], data.userName[k]));
+            scoreMap.insert(std::make_pair(cluster[k], userName[k]));
     }
 
     // display the cluster
-    std::cout << "\nCluster around " << data.userName[owner] << "\n";
+    std::cout << "\nCluster around " << userName[owner] << "\n";
     for (auto it : scoreMap)
     {
         std::cout << it.second << "\t" << it.first << "\n";
     }
 }
-main()
+main(int argc, char *argv[])
 {
     raven::set::cRunWatch::Start();
 
-    sharedLikes data;
+    if (argc != 2)
+    {
+        std::cout << "Usage: likes mem | db\n";
+        exit(1);
+    }
+    if (argv[1] == "mem")
+    {
+        sharedLikes data;
 
-    populateFromTest1(data);
-    // populateRandom(100000, data);
+        populateFromTest1(data);
+        // populateRandom(100000, data);
 
-    displayCluster(data, 0, cluster(0,data));
-    displayCluster(data, 1, cluster(1,data));
-    displayCluster(data, 2, cluster(2,data));
-    displayCluster(data, 3, cluster(3,data));
+        displayCluster(data.userName, 0, cluster(0, data));
+        displayCluster(data.userName, 1, cluster(1, data));
+        displayCluster(data.userName, 2, cluster(2, data));
+        displayCluster(data.userName, 3, cluster(3, data));
+    }
+    else
+    {
+        cSharedLikesDB DB;
+        DB.populateFromTest1();
+        auto userName = DB.userName();
+        displayCluster(userName, 1, DB.cluster(0));
+        displayCluster(userName, 2, DB.cluster(1));
+        displayCluster(userName, 3, DB.cluster(2));
+        displayCluster(userName, 4, DB.cluster(3));
+    }
 
     raven::set::cRunWatch::Report();
     return 0;
