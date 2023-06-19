@@ -8,6 +8,7 @@ class cSharedLikesDB
     ~cSharedLikesDB();
 
     void populateFromTest1();
+    void populateRandom(int userCount);
 
     /// @brief Find cluster around user of shared likes
     /// @param owner owner 1-based index

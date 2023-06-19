@@ -23,7 +23,6 @@ cSharedLikesDB::cSharedLikesDB()
                       0, 0, &dbErrMsg);
 
     prepare();
-    int fb = rc;
 }
 void cSharedLikesDB::prepare()
 {
@@ -48,7 +47,7 @@ void cSharedLikesDB::prepare()
                                 "SELECT weight FROM interest WHERE rowid = ?1;",
                                 -1, &weight, 0);
         if (rc)
-            throw 4;
+            throw 5;
     }
     catch (int p)
     {
@@ -81,6 +80,43 @@ void cSharedLikesDB::populateFromTest1()
                       0, 0, &dbErrMsg);
 }
 
+void cSharedLikesDB::populateRandom(int userCount)
+{
+    clear();
+    std::string q;
+    int rc;
+    rc = sqlite3_exec(db,
+                      "BEGIN TRANSACTION", 0, 0, &dbErrMsg);
+    for (int k = 0; k < userCount; k++)
+    {
+        q = "INSERT INTO user VALUES ( 'user" + std::to_string(k) + "' );";
+        rc = sqlite3_exec(db, q.c_str(), 0, 0, &dbErrMsg);
+    }
+    rc = sqlite3_exec(db,
+                      "END TRANSACTION", 0, 0, &dbErrMsg);
+
+    rc = sqlite3_exec(db,
+                      "BEGIN TRANSACTION", 0, 0, &dbErrMsg);
+    for (int k = 0; k < 100; k++)
+    {
+        q = "INSERT INTO interest VALUES (" + std::to_string(k) + "," + std::to_string(k) + ");";
+        rc = sqlite3_exec(db, q.c_str(), 0, 0, &dbErrMsg);
+    }
+    rc = sqlite3_exec(db,
+                      "END TRANSACTION", 0, 0, &dbErrMsg);
+
+    rc = sqlite3_exec(db,
+                      "BEGIN TRANSACTION", 0, 0, &dbErrMsg);
+    for (int k = 0; k < userCount; k++)
+        for (int l = 0; l < 3; l++)
+        {
+            q = "INSERT INTO like VALUES (" + std::to_string(k) + "," + std::to_string(rand() % 100) + ");";
+            rc = sqlite3_exec(db, q.c_str(), 0, 0, &dbErrMsg);
+        }
+    rc = sqlite3_exec(db,
+                      "END TRANSACTION", 0, 0, &dbErrMsg);
+}
+
 std::vector<std::string> cSharedLikesDB::userName()
 {
     std::vector<std::string> ret;
@@ -97,9 +133,13 @@ std::vector<std::string> cSharedLikesDB::userName()
 
 std::vector<double> cSharedLikesDB::cluster(int owner)
 {
+    // SQLite uses 1-based indexing
     owner++;
 
+    // track time
     raven::set::cRunWatch aWatcher("DBcluster");
+
+    // determing number of users, to size the output
 
     int userCount;
     while (sqlite3_step(countUsers) == SQLITE_ROW)
@@ -110,48 +150,51 @@ std::vector<double> cSharedLikesDB::cluster(int owner)
 
     std::vector<double> sharedScore(userCount + 1, 0);
 
-    std::vector<int> ownerInterests;
+    // find interests of owners
+
+    std::string ownerInterests;
     int rc = sqlite3_bind_int(userInterests, 1, owner);
-    while (sqlite3_step(userInterests) == SQLITE_ROW)
+    while ((rc = sqlite3_step(userInterests)) == SQLITE_ROW)
     {
-        ownerInterests.push_back(sqlite3_column_int(userInterests, 0));
+        if (!ownerInterests.empty())
+            ownerInterests += ",";
+        ownerInterests += std::string((char *)sqlite3_column_text(userInterests, 0));
     }
     sqlite3_reset(userInterests);
 
-    // loop over other users
-    rc = sqlite3_bind_int(selectAllOtherUsers, 1, owner);
-    while (sqlite3_step(selectAllOtherUsers) == SQLITE_ROW)
+    // find users with matching interests
+    
+    std::string query = "SELECT userid,likeid "
+                        "FROM like "
+                        "WHERE userid != " +
+                        std::to_string(owner) +
+                        " AND likeid IN ( " + ownerInterests + " );";
+    sqlite3_stmt *match;
+    rc = sqlite3_prepare_v2(db, query.c_str(), -1, &match, 0);
+    while ((rc = sqlite3_step(match)) == SQLITE_ROW)
     {
-        // loop over interests of other user
-        int other = sqlite3_column_int(selectAllOtherUsers, 0);
-        sqlite3_bind_int(userInterests, 1, other);
-        while (sqlite3_step(userInterests) == SQLITE_ROW)
-        {
-            int interest = sqlite3_column_int(userInterests, 0);
-            if (std::find(
-                    ownerInterests.begin(), ownerInterests.end(),
-                    interest) != ownerInterests.end())
-            {
-                // found a match
-                rc = sqlite3_bind_int(weight, 1, interest);
-                rc = sqlite3_step(weight);
-                sharedScore[other] += sqlite3_column_double(weight, 0);
-                sqlite3_reset(weight);
+        // found a match
+        // std::cout << owner
+        //           << " and " << sqlite3_column_text(match, 0)
+        //           << " like " << sqlite3_column_text(match, 1) << "\n";
 
-                //std::cout << owner << " and " << other << " like " << interest << "\n";
-            }
-        }
-        sqlite3_reset(userInterests);
+        // find weight of shared interest
+        int other = sqlite3_column_int(match, 0);
+        rc = sqlite3_bind_int(weight, 1, sqlite3_column_int(match, 1));
+        rc = sqlite3_step(weight);
+        sharedScore[other] += sqlite3_column_double(weight, 0);
+        sqlite3_reset(weight);
     }
-    sqlite3_reset(selectAllOtherUsers);
+    sqlite3_reset(match);
 
     return sharedScore;
 }
+
 void cSharedLikesDB::clear()
 {
     int rc = sqlite3_exec(db,
-                      "DELETE FROM user;",
-                      0, 0, &dbErrMsg);
+                          "DELETE FROM user;",
+                          0, 0, &dbErrMsg);
     rc = sqlite3_exec(db,
                       "DELETE FROM interest;",
                       0, 0, &dbErrMsg);

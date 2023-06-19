@@ -147,7 +147,8 @@ main(int argc, char *argv[])
     else
     {
         cSharedLikesDB DB;
-        DB.populateFromTest1();
+        //DB.populateFromTest1();
+        DB.populateRandom( 100000 );
         auto userName = DB.userName();
         displayCluster(userName, 1, DB.cluster(0));
         displayCluster(userName, 2, DB.cluster(1));
