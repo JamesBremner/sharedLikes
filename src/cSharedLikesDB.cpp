@@ -2,6 +2,7 @@
 #include "cRunWatch.h"
 #include "cSharedLikesDB.h"
 
+
 cSharedLikesDB::cSharedLikesDB()
     : dbErrMsg(0)
 {
@@ -163,7 +164,7 @@ std::vector<double> cSharedLikesDB::cluster(int owner)
     sqlite3_reset(userInterests);
 
     // find users with matching interests
-    
+
     std::string query = "SELECT userid,likeid "
                         "FROM like "
                         "WHERE userid != " +
